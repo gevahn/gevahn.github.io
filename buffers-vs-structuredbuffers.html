@@ -95,7 +95,7 @@
 
   
   
-  (589 Words, 
+  (591 Words, 
   4 Minutes)
   
 
@@ -115,7 +115,7 @@
 <p>Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other.</p>
 
 <h3 id="buffer">Buffer</h3>
-<p>A <code class="language-plaintext highlighter-rouge">Buffer</code> main purpose is to be used with a format. The template variable must fit in 4 32-bit quantities, but that template specifies the result after conversion <strong>not</strong> the data as it is laid out in memory. The place that specifies the layout in memory is the <code class="language-plaintext highlighter-rouge">Format</code> field of the SRV of the buffer. That’s right, even though a buffer resource must be created with <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>, an SRV meant to be bound to an HLSL <code class="language-plaintext highlighter-rouge">Buffer</code> <strong>has</strong> a format. That format also defines the stride of the buffer read, and therefore the <code class="language-plaintext highlighter-rouge">StructureByteStride</code> field of <code class="language-plaintext highlighter-rouge">D3D12_BUFFER_SRV</code> <strong>must</strong> be 0. Currently, specifying a format and a non-0 stride can result in device removed by the D3D12 runtime.</p>
+<p>The main purpose of a <code class="language-plaintext highlighter-rouge">Buffer</code> is to be used with a format. The template variable must fit in 4 32-bit quantities, but that template specifies the result after conversion <strong>not</strong> the data as it is laid out in memory. The place that specifies the layout in memory is the <code class="language-plaintext highlighter-rouge">Format</code> field of the SRV of the buffer. That’s right, even though a buffer resource must be created with <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>, an SRV meant to be bound to an HLSL <code class="language-plaintext highlighter-rouge">Buffer</code> <strong>has</strong> a format. That format also defines the stride of the buffer read, and therefore the <code class="language-plaintext highlighter-rouge">StructureByteStride</code> field of <code class="language-plaintext highlighter-rouge">D3D12_BUFFER_SRV</code> <strong>must</strong> be 0. Currently, specifying a format and a non-0 stride can result in device removed by the D3D12 runtime.</p>
 
 <p>Here is a common example of where all of this comes in handy. You can store normals and tangents in a packed buffer, using 8 bit for the X and Y component of each vector (Z is implicit since they are normalized) and use an SRV with <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_R8G8B8A8_SNORM</code> as the format. In the shader, you can bind this to a <code class="language-plaintext highlighter-rouge">Buffer&lt;float4&gt;</code> descriptor and when you load from the buffer the HW will convert the formats for you for free! It also works in the other direction as well. Declare a <code class="language-plaintext highlighter-rouge">RWBuffer&lt;float4&gt;</code> in a shader, and stores will auto-magically be converted from <code class="language-plaintext highlighter-rouge">float4</code> to <code class="language-plaintext highlighter-rouge">R8G8B8A8_SNORM</code>.</p>
 
@@ -137,7 +137,7 @@ void main()
 <h3 id="structuredbuffer">StructuredBuffer</h3>
 <p>A <code class="language-plaintext highlighter-rouge">StructuredBuffer</code> is templated by a struct. Unlike <code class="language-plaintext highlighter-rouge">Buffer</code>, the template defines the layout in memory and conversions do not occur. You can still use simple types such as <code class="language-plaintext highlighter-rouge">float4</code> or <code class="language-plaintext highlighter-rouge">int2</code> but the data needs to be laid out in a matched way in memory(support for the 16-bit types however is shakier, a topic for another day). A <code class="language-plaintext highlighter-rouge">StructuredBuffer</code> <strong>cannot</strong> have a format, the SRV format needs to be <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>. The <code class="language-plaintext highlighter-rouge">StructureByteStride</code> field needs to be <code class="language-plaintext highlighter-rouge">sizeof(struct)</code>.</p>
 
-<p>This buffer is bast used, well, for structs. <code class="language-plaintext highlighter-rouge">Light</code>, <code class="language-plaintext highlighter-rouge">DrawPacket</code>, <code class="language-plaintext highlighter-rouge">BoneMatrix</code>, <code class="language-plaintext highlighter-rouge">Particle</code> etc. There isn’t really a limit on the size of the struct, but remember that everything in graphics tends to be multiplied by the screen resolution. If every pixel needs to read even just 8 bytes, that is 64MB for 4K target. Aligning the structs (and their members) to 16 byte boundaries will help performance as well. If you need a non-16 byte align type (a <code class="language-plaintext highlighter-rouge">float3</code> for example) a better approach might be to declare it as <code class="language-plaintext highlighter-rouge">Buffer&lt;float&gt;</code> and access triplets in a shader. A bit ugly but will avoid some of the nasty edge cases of non-16 byte aligned types.</p>
+<p>This buffer is best used, well, for structs. <code class="language-plaintext highlighter-rouge">Light</code>, <code class="language-plaintext highlighter-rouge">DrawPacket</code>, <code class="language-plaintext highlighter-rouge">BoneMatrix</code>, <code class="language-plaintext highlighter-rouge">Particle</code> etc. There isn’t really a limit on the size of the struct, but remember that everything in graphics tends to be multiplied by the screen resolution. If every pixel needs to read even just 8 bytes, that is 64MB for 4K target. Aligning the structs (and their members) to 16 byte boundaries will help performance as well. If you need a non-16 byte align type (a <code class="language-plaintext highlighter-rouge">float3</code> for example) a better approach might be to declare it as <code class="language-plaintext highlighter-rouge">Buffer&lt;float&gt;</code> and access triplets in a shader. A bit ugly but will avoid some of the nasty edge cases of non-16 byte aligned types.</p>
 
 <p>Code snippet:</p>
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>struct Particle
@@ -158,7 +158,7 @@ void main()
 }
 </code></pre></div></div>
 
-<h2 id="summery">Summery</h2>
+<h2 id="summary">Summary</h2>
 
 <p>Here is a handy table to summarize the info:</p>
 
