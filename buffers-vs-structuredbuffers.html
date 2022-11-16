@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" class="html" data-theme="dark"><head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>
+    
+      HLSL: Buffer vs. StructuredBuffer
+    
+  </title>
+
+  <!-- Begin Jekyll SEO tag v2.7.3 -->
+<meta name="generator" content="Jekyll v4.2.2" />
+<meta property="og:title" content="HLSL: Buffer vs. StructuredBuffer" />
+<meta name="author" content="Nadav Geva" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other." />
+<meta property="og:description" content="Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other." />
+<link rel="canonical" href="http://localhost:4000/buffers-vs-structuredbuffers" />
+<meta property="og:url" content="http://localhost:4000/buffers-vs-structuredbuffers" />
+<meta property="og:site_name" content="Dark Corners of the API" />
+<meta property="og:image" content="https://soopr.xyz/images/card?url=http://localhost:4000/buffers-vs-structuredbuffers" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-11-15T21:00:00-05:00" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="og:image" content="https://soopr.xyz/images/card?url=http://localhost:4000/buffers-vs-structuredbuffers" />
+<meta property="twitter:title" content="HLSL: Buffer vs. StructuredBuffer" />
+<script type="application/ld+json">
+{"mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/buffers-vs-structuredbuffers"},"url":"http://localhost:4000/buffers-vs-structuredbuffers","author":{"@type":"Person","name":"Nadav Geva"},"@type":"BlogPosting","description":"Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other.","headline":"HLSL: Buffer vs. StructuredBuffer","dateModified":"2022-11-15T21:00:00-05:00","datePublished":"2022-11-15T21:00:00-05:00","@context":"https://schema.org"}</script>
+<script async defer data-soopr-token="" src="https://sdk.soopr.co/soopr.js"  ></script>
+<!-- End Jekyll SEO tag -->
+
+  <link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="Dark Corners of the API" />
+
+  <!-- Favicon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/assets/images/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/assets/images/favicon/safari-pinned-tab.svg" color="#5bbad5">
+  <link rel="shortcut icon" href="/assets/images/favicon/favicon.ico">
+  <meta name="msapplication-TileColor" content="#00aba9">
+  <meta name="msapplication-config" content="/assets/images/favicon/browserconfig.xml">
+  <meta name="theme-color" content="#ffffff">
+  <!-- Favicon -->
+
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  
+    <script type="text/javascript">
+  window.addEventListener('load', themeChange);
+  const currentTheme = localStorage.getItem('theme') ? localStorage.getItem('theme') : null;
+  if (currentTheme)
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+  function themeChange() {
+    let button = document.querySelector('.theme-toggle');
+
+    button.addEventListener('click', function (e) {
+      let currentTheme = document.documentElement.getAttribute('data-theme');
+      if (currentTheme === 'dark') {
+        transition();
+        document.documentElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+      } else {
+        transition();
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+      }
+    });
+
+    let transition = () => {
+      document.documentElement.classList.add('transition');
+      window.setTimeout(() => {
+        document.documentElement.classList.remove('transition');
+      }, 1000);
+    }
+  }
+</script>
+
+
+  
+</head>
+<body>
+    <main class="page-content" aria-label="Content">
+      <div class="w">
+        <a href="/">home..</a>
+<h1 class="post-title">HLSL: Buffer vs. StructuredBuffer</h1>
+<p class="post-date text-bold">
+  
+  
+    <span class="text-upcase">November 2022</span>
+  
+
+
+  
+  
+  (552 Words, 
+  4 Minutes)
+  
+
+</p>
+
+<div class="soopr-btn"
+   data-twitter="SooprCo"
+>
+</div>
+
+
+  <div class="">
+    
+  </div>
+
+
+<p>Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other.</p>
+
+<h3 id="buffer">Buffer</h3>
+<p>A <code class="language-plaintext highlighter-rouge">Buffer</code> main purpose is to be used with a format. The template variable must fit in 4 32-bit quantities, but that template specifies the result after conversion <strong>not</strong> the data as it is laid out in memory. The place that specifies the layout in memory is the <code class="language-plaintext highlighter-rouge">Format</code> field of the SRV of the buffer. That’s right, even though a buffer resource must be created with <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>, an SRV meant to be bound to an HLSL <code class="language-plaintext highlighter-rouge">Buffer</code> <strong>has</strong> a format. That format also defines the stride of the buffer read, and therefore the <code class="language-plaintext highlighter-rouge">StructureByteStride</code> field of <code class="language-plaintext highlighter-rouge">D3D12_BUFFER_SRV</code> <strong>must</strong> be 0. Currently, specifying a format and a non-0 stride can result in device removed by the D3D12 runtime.</p>
+
+<p>Here is a common example of where all of this comes in handy. You can store normals and tangents in a packed buffer, using 8 bit for the X and Y component of each vector (Z is implicit since they are normalized) and use an SRV with <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_R8G8B8A8_SNORM</code> as the format. In the shader, you can bind this to a <code class="language-plaintext highlighter-rouge">Buffer&lt;float4&gt;</code> descriptor and when you load from the buffer the HW will convert the formats for you for free! It also works in the other direction as well. Declare a <code class="language-plaintext highlighter-rouge">RWBuffer&lt;float4&gt;</code> in a shader, and stores will auto-magically be converted from <code class="language-plaintext highlighter-rouge">float4</code> to <code class="language-plaintext highlighter-rouge">R8G8B8A8_SNORM</code>.</p>
+
+<p>Code snippet:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Buffer&lt;float4&gt; NormalsAndTangents; // stored as RGBA8_snorm in memory
+RWBuffer&lt;float4&gt; RW_NormalsAndTangents;
+
+...
+void main()
+{
+    float2 normal = NormalsAndTangents[idx].xy;
+    float2 tangent = NormalsAndTangents[idx].zw;
+
+    // do some math with the normals
+    RW_NormalsAndTangents[idx] = float4(normal, tangent); // will be converted by the HW to RGBA8_snorm
+}
+</code></pre></div></div>
+
+<h3 id="structuredbuffer">StructuredBuffer</h3>
+<p>A <code class="language-plaintext highlighter-rouge">StructuredBuffer</code> is templated by a struct. Unlike <code class="language-plaintext highlighter-rouge">Buffer</code>, the template defines the layout in memory and conversions do not occur. You can still use simple types such as <code class="language-plaintext highlighter-rouge">float4</code> or <code class="language-plaintext highlighter-rouge">int2</code> but the data needs to be laid out in a matched way in memory(support for the 16-bit types however is shakier, a topic for another day). A <code class="language-plaintext highlighter-rouge">StructuredBuffer</code> <strong>cannot</strong> have a format, the SRV format needs to be <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>. The <code class="language-plaintext highlighter-rouge">StructureByteStride</code> field needs to be <code class="language-plaintext highlighter-rouge">sizeof(struct)</code>.</p>
+
+<p>This buffer is bast used, well, for structs. <code class="language-plaintext highlighter-rouge">Light</code>, <code class="language-plaintext highlighter-rouge">DrawPacket</code>, <code class="language-plaintext highlighter-rouge">BoneMatrix</code>, <code class="language-plaintext highlighter-rouge">Particle</code> etc. There isn’t really a limit on the size of the struct, but remember that everything in graphics tends to be multiplied by the screen resolution. If every pixel needs to read even just 8 bytes, that is 64MB for 4K target. Aligning the structs (and their members) to 16 byte boundaries will help performance as well. If you need a non-16 byte align type (a <code class="language-plaintext highlighter-rouge">float3</code> for example) a better approach might be to declare it as <code class="language-plaintext highlighter-rouge">Buffer&lt;float&gt;</code> and access triplets in a shader. A bit ugly but will avoid some of the nasty edge cases of non-16 byte aligned types.</p>
+
+<p>Code snippet:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>struct Particle
+{
+    float4 pos;
+    float4 vel;
+}
+
+StructuredBuffer&lt;Particle&gt; ParticleArray; // stored as 2 float4 in memory
+RWStructuredBuffer&lt;Particle&gt; RW_ParticleArray;
+
+...
+void main()
+{
+    Particle p = ParticleArray[idx];
+    // do some math with the Particle
+    RW_ParticleArray[idx] = p ; // no conversion will be stored as 2 float4
+}
+</code></pre></div></div>
+
+<h2 id="summery">Summery</h2>
+
+<p>Here is a handy table to summarize the info: 
+|   | <code class="language-plaintext highlighter-rouge">Buffer</code>  |  <code class="language-plaintext highlighter-rouge">StructuredBuffer</code> | 
+|—|—|—|
+|Format for resource creation   | <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>  |<code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>   | 
+|Format for SRV\UAV   | As laid out in memory   |<code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>   | 
+|<code class="language-plaintext highlighter-rouge">StructureByteStride</code> field   |  0 | <code class="language-plaintext highlighter-rouge">sizeof(struct)</code>  |<br />
+|Can convert data?   | Yes  | No  |</p>
+
+<p>If you found all of this confusing, you are not alone. We recently spent an hour debugging an issue with <code class="language-plaintext highlighter-rouge">Buffer</code> and incorrect format. And like most dark corners, the behavior between AMD and NV hardware is different…</p>
+
+<p>Some useful (?) MSDN pages:</p>
+
+<p>https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_unordered_access_view_desc</p>
+
+<p>https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_buffer_uav</p>
+
+<p>https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_shader_resource_view_desc</p>
+
+<p>https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_buffer_srv</p>
+
+<p>https://learn.microsoft.com/en-us/windows/win32/direct3d12/typed-unordered-access-view-loads</p>
+
+<p>https://learn.microsoft.com/en-us/windows/uwp/graphics-concepts/shader-resource-view–srv-</p>
+
+
+        
+          <button title="Toggle Theme" class="theme-toggle">
+  <svg viewBox="0 0 32 32" width="24" height="24" fill="currentcolor">
+    <circle cx="16" cy="16" r="14" fill="none" stroke="currentcolor" stroke-width="4"></circle>
+    <path d="
+             M 16 0
+             A 16 16 0 0 0 16 32
+             z">
+    </path>
+  </svg>
+</button>
+
+        
+        <div class="credits">&copy;&nbsp;2022&nbsp;Nadav Geva
+          &nbsp;
+          •
+          &nbsp;Powered by <a href="https://www.soopr.co" target="_blank" rel="noreferrer">Soopr</a>
+          &nbsp;
+          •
+          &nbsp;Theme&nbsp; <a href="https://github.com/abhinavs/moonwalk" target="_blank" rel="noreferrer">Moonwalk</a>
+        </div>
+      </div>
+    </main><script async defer src="https://sdk.soopr.co/soopr.js"></script></body>
+</html>

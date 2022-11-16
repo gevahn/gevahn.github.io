@@ -1,18 +1,72 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.2.2">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2022-11-14T20:34:25-05:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">Dark Corners of the API</title><subtitle>Moonwalk is a fast and elegant Jekyll theme with a clean dark mode. It comes with horizontal list (for navbar and footer), card list (for portfolio), and a generic vertical list. It is very easy to modify in case you want to build over it - please see _layouts/home.html to do that.
-</subtitle><author><name>Nadav Geva</name></author><entry><title type="html">Welcome to Jekyll!</title><link href="http://localhost:4000/welcome-to-jekyll" rel="alternate" type="text/html" title="Welcome to Jekyll!" /><published>2022-11-10T21:50:33-05:00</published><updated>2022-11-10T21:50:33-05:00</updated><id>http://localhost:4000/welcome-to-jekyll</id><content type="html" xml:base="http://localhost:4000/welcome-to-jekyll">&lt;p&gt;You’ll find this post in your &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_posts&lt;/code&gt; directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jekyll serve&lt;/code&gt;, which launches a web server and auto-regenerates your site when a file is updated.&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.2.2">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2022-11-15T21:36:09-05:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">Dark Corners of the API</title><subtitle>Dark Corners of the API, a place to talk about corners, edge cases, and poorly documented features of graphics APIs.
+</subtitle><author><name>Nadav Geva</name></author><entry><title type="html">HLSL: Buffer vs. StructuredBuffer</title><link href="http://localhost:4000/buffers-vs-structuredbuffers" rel="alternate" type="text/html" title="HLSL: Buffer vs. StructuredBuffer" /><published>2022-11-15T21:00:00-05:00</published><updated>2022-11-15T21:00:00-05:00</updated><id>http://localhost:4000/buffers-vs-structuredbuffers</id><content type="html" xml:base="http://localhost:4000/buffers-vs-structuredbuffers">&lt;p&gt;Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other.&lt;/p&gt;
 
-&lt;p&gt;Jekyll requires blog post files to be named according to the following format:&lt;/p&gt;
+&lt;h3 id=&quot;buffer&quot;&gt;Buffer&lt;/h3&gt;
+&lt;p&gt;A &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&lt;/code&gt; main purpose is to be used with a format. The template variable must fit in 4 32-bit quantities, but that template specifies the result after conversion &lt;strong&gt;not&lt;/strong&gt; the data as it is laid out in memory. The place that specifies the layout in memory is the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Format&lt;/code&gt; field of the SRV of the buffer. That’s right, even though a buffer resource must be created with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DXGI_FORMAT_UNKNOWN&lt;/code&gt;, an SRV meant to be bound to an HLSL &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&lt;/code&gt; &lt;strong&gt;has&lt;/strong&gt; a format. That format also defines the stride of the buffer read, and therefore the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;StructureByteStride&lt;/code&gt; field of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;D3D12_BUFFER_SRV&lt;/code&gt; &lt;strong&gt;must&lt;/strong&gt; be 0. Currently, specifying a format and a non-0 stride can result in device removed by the D3D12 runtime.&lt;/p&gt;
 
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;YEAR-MONTH-DAY-title.MARKUP&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Here is a common example of where all of this comes in handy. You can store normals and tangents in a packed buffer, using 8 bit for the X and Y component of each vector (Z is implicit since they are normalized) and use an SRV with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DXGI_FORMAT_R8G8B8A8_SNORM&lt;/code&gt; as the format. In the shader, you can bind this to a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&amp;lt;float4&amp;gt;&lt;/code&gt; descriptor and when you load from the buffer the HW will convert the formats for you for free! It also works in the other direction as well. Declare a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;RWBuffer&amp;lt;float4&amp;gt;&lt;/code&gt; in a shader, and stores will auto-magically be converted from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;float4&lt;/code&gt; to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;R8G8B8A8_SNORM&lt;/code&gt;.&lt;/p&gt;
 
-&lt;p&gt;Where &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;YEAR&lt;/code&gt; is a four-digit number, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;MONTH&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DAY&lt;/code&gt; are both two-digit numbers, and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;MARKUP&lt;/code&gt; is the file extension representing the format used in the file. After that, include the necessary front matter. Take a look at the source for this post to get an idea about how it works.&lt;/p&gt;
+&lt;p&gt;Code snippet:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Buffer&amp;lt;float4&amp;gt; NormalsAndTangents; // stored as RGBA8_snorm in memory
+RWBuffer&amp;lt;float4&amp;gt; RW_NormalsAndTangents;
 
-&lt;p&gt;Jekyll also offers powerful support for code snippets:&lt;/p&gt;
+...
+void main()
+{
+    float2 normal = NormalsAndTangents[idx].xy;
+    float2 tangent = NormalsAndTangents[idx].zw;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;print_hi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;nb&quot;&gt;puts&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Hi, &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;#{&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;print_hi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&apos;Tom&apos;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;#=&amp;gt; prints &apos;Hi, Tom&apos; to STDOUT.&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+    // do some math with the normals
+    RW_NormalsAndTangents[idx] = float4(normal, tangent); // will be converted by the HW to RGBA8_snorm
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
-&lt;p&gt;Check out the &lt;a href=&quot;https://jekyllrb.com/docs/home&quot;&gt;Jekyll docs&lt;/a&gt; for more info on how to get the most out of Jekyll. File all bugs/feature requests at &lt;a href=&quot;https://github.com/jekyll/jekyll&quot;&gt;Jekyll’s GitHub repo&lt;/a&gt;. If you have questions, you can ask them on &lt;a href=&quot;https://talk.jekyllrb.com/&quot;&gt;Jekyll Talk&lt;/a&gt;.&lt;/p&gt;</content><author><name>Nadav Geva</name></author><category term="jekyll" /><category term="update" /><summary type="html">You’ll find this post in your _posts directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run jekyll serve, which launches a web server and auto-regenerates your site when a file is updated.</summary></entry></feed>
+&lt;h3 id=&quot;structuredbuffer&quot;&gt;StructuredBuffer&lt;/h3&gt;
+&lt;p&gt;A &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;StructuredBuffer&lt;/code&gt; is templated by a struct. Unlike &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&lt;/code&gt;, the template defines the layout in memory and conversions do not occur. You can still use simple types such as &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;float4&lt;/code&gt; or &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;int2&lt;/code&gt; but the data needs to be laid out in a matched way in memory(support for the 16-bit types however is shakier, a topic for another day). A &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;StructuredBuffer&lt;/code&gt; &lt;strong&gt;cannot&lt;/strong&gt; have a format, the SRV format needs to be &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DXGI_FORMAT_UNKNOWN&lt;/code&gt;. The &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;StructureByteStride&lt;/code&gt; field needs to be &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;sizeof(struct)&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;This buffer is bast used, well, for structs. &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Light&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DrawPacket&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;BoneMatrix&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Particle&lt;/code&gt; etc. There isn’t really a limit on the size of the struct, but remember that everything in graphics tends to be multiplied by the screen resolution. If every pixel needs to read even just 8 bytes, that is 64MB for 4K target. Aligning the structs (and their members) to 16 byte boundaries will help performance as well. If you need a non-16 byte align type (a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;float3&lt;/code&gt; for example) a better approach might be to declare it as &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&amp;lt;float&amp;gt;&lt;/code&gt; and access triplets in a shader. A bit ugly but will avoid some of the nasty edge cases of non-16 byte aligned types.&lt;/p&gt;
+
+&lt;p&gt;Code snippet:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;struct Particle
+{
+    float4 pos;
+    float4 vel;
+}
+
+StructuredBuffer&amp;lt;Particle&amp;gt; ParticleArray; // stored as 2 float4 in memory
+RWStructuredBuffer&amp;lt;Particle&amp;gt; RW_ParticleArray;
+
+...
+void main()
+{
+    Particle p = ParticleArray[idx];
+    // do some math with the Particle
+    RW_ParticleArray[idx] = p ; // no conversion will be stored as 2 float4
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;summery&quot;&gt;Summery&lt;/h2&gt;
+
+&lt;p&gt;Here is a handy table to summarize the info: 
+|   | &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&lt;/code&gt;  |  &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;StructuredBuffer&lt;/code&gt; | 
+|—|—|—|
+|Format for resource creation   | &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DXGI_FORMAT_UNKNOWN&lt;/code&gt;  |&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DXGI_FORMAT_UNKNOWN&lt;/code&gt;   | 
+|Format for SRV\UAV   | As laid out in memory   |&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DXGI_FORMAT_UNKNOWN&lt;/code&gt;   | 
+|&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;StructureByteStride&lt;/code&gt; field   |  0 | &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;sizeof(struct)&lt;/code&gt;  |&lt;br /&gt;
+|Can convert data?   | Yes  | No  |&lt;/p&gt;
+
+&lt;p&gt;If you found all of this confusing, you are not alone. We recently spent an hour debugging an issue with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&lt;/code&gt; and incorrect format. And like most dark corners, the behavior between AMD and NV hardware is different…&lt;/p&gt;
+
+&lt;p&gt;Some useful (?) MSDN pages:&lt;/p&gt;
+
+&lt;p&gt;https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_unordered_access_view_desc&lt;/p&gt;
+
+&lt;p&gt;https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_buffer_uav&lt;/p&gt;
+
+&lt;p&gt;https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_shader_resource_view_desc&lt;/p&gt;
+
+&lt;p&gt;https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_buffer_srv&lt;/p&gt;
+
+&lt;p&gt;https://learn.microsoft.com/en-us/windows/win32/direct3d12/typed-unordered-access-view-loads&lt;/p&gt;
+
+&lt;p&gt;https://learn.microsoft.com/en-us/windows/uwp/graphics-concepts/shader-resource-view–srv-&lt;/p&gt;</content><author><name>Nadav Geva</name></author><category term="memory" /><category term="dx12" /><summary type="html">Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other.</summary></entry><entry><title type="html">Welcome to Dark Corners of the API!</title><link href="http://localhost:4000/welcome-to-dark-corners" rel="alternate" type="text/html" title="Welcome to Dark Corners of the API!" /><published>2022-11-15T20:00:33-05:00</published><updated>2022-11-15T20:00:33-05:00</updated><id>http://localhost:4000/welcome-to-dark-corners</id><content type="html" xml:base="http://localhost:4000/welcome-to-dark-corners">&lt;p&gt;Welcome to my new blog, Dark Corners of the API, a place to talk about corners, edge cases, and poorly documented features of graphics APIs. I’m Nadav Geva, a DevTech engineer at AMD. During the course of my work helping game developers wrangle the graphics APIs, mainly DX12 and Vulkan, I’ve came across all kinds of dark corners where the helping light of the internet does not go. In this blog, I hope to shed some of that light so hopefully my suffering will spare yours.&lt;/p&gt;</content><author><name>Nadav Geva</name></author><category term="announcement" /><summary type="html">Welcome to my new blog, Dark Corners of the API, a place to talk about corners, edge cases, and poorly documented features of graphics APIs. I’m Nadav Geva, a DevTech engineer at AMD. During the course of my work helping game developers wrangle the graphics APIs, mainly DX12 and Vulkan, I’ve came across all kinds of dark corners where the helping light of the internet does not go. In this blog, I hope to shed some of that light so hopefully my suffering will spare yours.</summary></entry></feed>
