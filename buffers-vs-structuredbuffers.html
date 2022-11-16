@@ -95,7 +95,7 @@
 
   
   
-  (552 Words, 
+  (583 Words, 
   4 Minutes)
   
 
@@ -160,13 +160,39 @@ void main()
 
 <h2 id="summery">Summery</h2>
 
-<p>Here is a handy table to summarize the info: 
-|   | <code class="language-plaintext highlighter-rouge">Buffer</code>  |  <code class="language-plaintext highlighter-rouge">StructuredBuffer</code> | 
-|—|—|—|
-|Format for resource creation   | <code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>  |<code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>   | 
-|Format for SRV\UAV   | As laid out in memory   |<code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code>   | 
-|<code class="language-plaintext highlighter-rouge">StructureByteStride</code> field   |  0 | <code class="language-plaintext highlighter-rouge">sizeof(struct)</code>  |<br />
-|Can convert data?   | Yes  | No  |</p>
+<p>Here is a handy table to summarize the info:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: center"><code class="language-plaintext highlighter-rouge">Buffer</code></th>
+      <th style="text-align: center"><code class="language-plaintext highlighter-rouge">StructuredBuffer</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Format for resource creation</td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code></td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Format for SRV\UAV</td>
+      <td style="text-align: center">As laid out in memory</td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">DXGI_FORMAT_UNKNOWN</code></td>
+    </tr>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">StructureByteStride</code> field</td>
+      <td style="text-align: center">0</td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">sizeof(struct)</code></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Can convert data?</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">No</td>
+    </tr>
+  </tbody>
+</table>
 
 <p>If you found all of this confusing, you are not alone. We recently spent an hour debugging an issue with <code class="language-plaintext highlighter-rouge">Buffer</code> and incorrect format. And like most dark corners, the behavior between AMD and NV hardware is different…</p>
 
