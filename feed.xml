@@ -1,5 +1,123 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.2.2">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2022-11-15T23:39:28-05:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">Dark Corners of the API</title><subtitle>Dark Corners of the API, a place to talk about corners, edge cases, and poorly documented features of graphics APIs.
-</subtitle><author><name>Nadav Geva</name></author><entry><title type="html">HLSL: Buffer vs. StructuredBuffer</title><link href="http://localhost:4000/buffers-vs-structuredbuffers" rel="alternate" type="text/html" title="HLSL: Buffer vs. StructuredBuffer" /><published>2022-11-15T21:00:00-05:00</published><updated>2022-11-15T21:00:00-05:00</updated><id>http://localhost:4000/buffers-vs-structuredbuffers</id><content type="html" xml:base="http://localhost:4000/buffers-vs-structuredbuffers">&lt;p&gt;Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other.&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.2.2">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2022-11-29T22:14:51-05:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">Dark Corners of the API</title><subtitle>Dark Corners of the API, a place to talk about corners, edge cases, and poorly documented features of graphics APIs.
+</subtitle><author><name>Nadav Geva</name></author><entry><title type="html">WaveOps and undefined mappings</title><link href="http://localhost:4000/waveops-and-undefined-mappings" rel="alternate" type="text/html" title="WaveOps and undefined mappings" /><published>2022-11-28T21:00:00-05:00</published><updated>2022-11-28T21:00:00-05:00</updated><id>http://localhost:4000/WaveOps-and-undefined-mappings</id><content type="html" xml:base="http://localhost:4000/waveops-and-undefined-mappings">&lt;p&gt;These days if you spent any time doing graphics, you probably wrote a compute shader. What you probably didn’t do, is spent much time thinking about the order of the threads relative to their lane ID (and neither did Microsoft until very recently). In this post we’ll explore this undefined mapping and it’s implication, and we’ll do it through the eras of shader models.&lt;/p&gt;
+
+&lt;h2 id=&quot;the-pre-sm60-era---fxc&quot;&gt;The Pre SM6.0 era - FXC&lt;/h2&gt;
+
+&lt;p&gt;When compute shaders were first introduced the shading language was specifically constructed to abstract away the HW details. You launch threads and use them. This was done to facilitated the multi-vendor landscape. You don’t need to worry about how wide the HW is, how many threads or thread groups are executing. If you want to communicate between threads, it can be done through the Local Data Share (LDS). Things are pretty straight forward.&lt;/p&gt;
+
+&lt;h2 id=&quot;the-pre-sm66-era---dxc-and-waveops&quot;&gt;The Pre SM6.6 era - DXC and WaveOps&lt;/h2&gt;
+
+&lt;p&gt;After some time, people noticed that in many situations the data you want already exist in a register, just not the one assigned to your thread. Initially limited to the consoles and vendor extensions, WaveOps finally entered the API with DXC and SM6.0. Clever algorithms could gain a significant speed up by allowing threads to communicate without having to go through LDS. Others allow for scalarization, using WaveOps to convert vector operations into scalar ones. Pixel shaders could gain even more power by exposing the QuadOps - operations that allowed for quick access into the other lanes that make up the quad.&lt;/p&gt;
+
+&lt;p&gt;But not all was well. WaveOps expose HW implementation details that were hidden before. Suddenly, you needed to know how wide the HW is, how many threads are in a wave, and how to write algorithms that can work if these details varied. Most importantly, and the main topic of this post, you now needed to know &lt;em&gt;where&lt;/em&gt; the threads were.&lt;/p&gt;
+
+&lt;h2 id=&quot;where-the-wild-threads-are&quot;&gt;Where the wild threads are&lt;/h2&gt;
+
+&lt;p&gt;Let’s take a simplified model, a HW that is 8-lanes wide, and launch the following shader:&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[numthreads(4,2,1)]
+void main(uint3 gid : SV_GroupThreadID )
+{
+    uint laneId = WaveGetLaneIndex();
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;What will gid be? That is well defined (z is always 0 and will be omitted here):&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(0,0)	(1,0)	(2,0)	(3,0)
+(0,1)	(1,1)	(2,1)	(3,1)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;but what is the result laneId, relative to gid? That is undefined by the spec! Completely up to the implementation. It could be this:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;0	1	2	3
+4	5	6	7
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;or this:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;0	1	4	5
+2	3	6	7
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;or even this:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;7	4	6	3
+2	5	1	0
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;The spec doesn’t say. But if we want to be pedantic, it gets even worse. How about the next shader:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[numthreads(8,1,1)]
+void main(uint3 gid : SV_GroupThreadID )
+{
+ uint laneId = WaveGetLaneIndex();
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Again, the gid is well defined (y and z are 0 here):&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(0)	(1)	(2)	(3)	(4)	(5)	(6)	(7)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;and surely laneId is something sane like this:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;0	1	2	3	4	5	6	7
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Luckily (and as far and I know) it is, but crucially the spec does not enforce this. If our 8-wide HW is composed of 2 4-wide SIMD units and we want the laneId order to be:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;4	5	6	7	0	1	2	3
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;We can go right ahead.&lt;/p&gt;
+
+&lt;h2 id=&quot;if-you-did-not-define-it-it-is-undefined&quot;&gt;If you did not define it, it is undefined&lt;/h2&gt;
+
+&lt;p&gt;So how does any of this ever work? Most of the time, it doesn’t matter. Either the algorithm doesn’t care about this detail (for example if you are scalarizing a shader, the WaveOps themselves abstract this detail away). Other times, people relied on the undefined behavior that the laneId is just counting left-to-right, up-to-down (known as “type-writer” order), and if a shader broke, the driver could set the type-writer order for that shader. Relying on the order of linear threadgroups (defined using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;[numthreads(X,1,1)]&lt;/code&gt;) is generally safe. Using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WaveGetLaneIndex()&lt;/code&gt; is even better, if you want to be extra spec-compliant. With that index in hand, you can create your own, well-defined equivalent to SV_GroupID. &lt;a href=&quot;https://github.com/GPUOpen-Effects/FidelityFX-SPD&quot;&gt;SPD&lt;/a&gt; is a great example on how to do it (with some nice helper functions such as &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ARmpRed8x8&lt;/code&gt; you can reuse). Tedious, but ensures spec compliance and working shaders across different vendors and drivers.&lt;/p&gt;
+
+&lt;h2 id=&quot;the-post-sm66-era-aka-the-present&quot;&gt;The post SM6.6 era (AKA the present)&lt;/h2&gt;
+
+&lt;p&gt;With much fan-fare (well, a &lt;a href=&quot;https://devblogs.microsoft.com/directx/in-the-works-hlsl-shader-model-6-6/&quot;&gt;blog post&lt;/a&gt;), microsoft announced SM6.6. Along with many nice features such as Dynamic Resource Binding and Integer Atomics, Compute Shader Derivatives and Samples were introduced. Up until SM6.6, Compute shader could not do derivative. But this was a somewhat artificial limitation, derivatives are computed numerically, simply differences between adjacent values. The only issue is who is adjacent to whom.&lt;/p&gt;
+
+&lt;p&gt;MS wanted a nice and stable reference point and so chose to rely on consecutive lane indices. A sensible and outright non-sense choice. Let’s go back to our previous example to see why. We’ll look again at fictional 8-wide HW and the following shader (now using SM6.6):&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[numthreads(4,2,1)]
+void main(uint3 gid : SV_GroupThreadID )
+{
+    uint laneId = WaveGetLaneIndex();
+    float x_derivative = ddx(laneId);
+    float y_derivative = ddy(laneId);
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Again a reminder of the gid:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(0,0)	(1,0)	(2,0)	(3,0)
+(0,1)	(1,1)	(2,1)	(3,1)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;and the laneId: (relying here on undefined behavior that &lt;em&gt;almost always&lt;/em&gt; works)&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;0	1	2	3
+4	5	6	7
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;what is the value of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;x_derivative&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;y_derivative&lt;/code&gt;? Under the original rule in the blog post &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;x_derivative&lt;/code&gt; is:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;-1	-1	-1	-1
+-1	-1	-1	-1
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;looks fine at first glance, nothing to see here. How about &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;y_derivative&lt;/code&gt;?&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;-2	-2	-2	-2
+-2	-2	-2	-2
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Ugh, what just happened? The derivative followed the lane order instead of the more natural spatial order implied by gid!
+so instead of ddy = 0-4 = -4 (the value at (1,0) - the value at (0,0)) for the first pixel, we got -2, the value at (2,0) - the value at (0,0)! The quad were not arranged like we though they were! In a more realistic shader, it gets worse. Frequently we do something like this in a compute shader:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[numthreads(4,2,1)]
+void main(uint3 tid : SV_DispatchThreadID )
+{
+    float3 color = colorTexture[tid.xy];
+    ...
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Each thread loads a pixel, and the threads are launched on a grid “aligned” to the image. This is some nice syntactic sugar that helps writing clearer code (imagine if all access was through linear indices :shudder:). But this has strong spatial implication that originally, SM6.6 completely ignored. If you were to Sample or do a gradient operation the result will be complete junk. Some of the x derivatives will make sense, but all y derivative will be nonsense.&lt;/p&gt;
+
+&lt;p&gt;However with some nudges from AMD, MS changed the spec. There is still no strong mapping between &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SV_GroupThreadID&lt;/code&gt; and the result of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WaveGetLaneIndex()&lt;/code&gt;, but in SM6.6 Quads are well defined. Defined using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SV_GroupThreadID&lt;/code&gt; instead of the original consecutive &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WaveGetLaneIndex()&lt;/code&gt;, derivative and QuadOps will now do “the right thing”. Within a quad, threads are now in “Z” order:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;0	1	4	5
+2	3	6	7
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;However, between Quads, anything goes. If for example we had 16-wide HW, launched with [numthreads(4,4,1)] the order might be:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;0	1	4	5
+2	3	6	7
+8	9	12	13
+10	11	14	15
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Which will be a Z in Quads, and Z between quads. But it can also be Z and N:&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;8	9	0	1
+10	11	2	3
+12	13	4	5
+14	15	6	7
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;The spec makes no promises, and it is up to the HW vendors to arrange the quads as they see fit. While it isn’t the full mapping we were hoping for, at least derivatives and QuadOps make sense.&lt;/p&gt;</content><author><name>Nadav Geva</name></author><category term="waveops" /><category term="dx12" /><summary type="html">These days if you spent any time doing graphics, you probably wrote a compute shader. What you probably didn’t do, is spent much time thinking about the order of the threads relative to their lane ID (and neither did Microsoft until very recently). In this post we’ll explore this undefined mapping and it’s implication, and we’ll do it through the eras of shader models.</summary></entry><entry><title type="html">HLSL: Buffer vs. StructuredBuffer</title><link href="http://localhost:4000/buffers-vs-structuredbuffers" rel="alternate" type="text/html" title="HLSL: Buffer vs. StructuredBuffer" /><published>2022-11-15T21:00:00-05:00</published><updated>2022-11-15T21:00:00-05:00</updated><id>http://localhost:4000/buffers-vs-structuredbuffers</id><content type="html" xml:base="http://localhost:4000/buffers-vs-structuredbuffers">&lt;p&gt;Ever wondered why the DirectX offers two seemingly interchangeable buffer types? In this post we’ll go over the subtleties of the two. The MSDN does contain this information, but it is scattered across several pages that only vaguely link each other.&lt;/p&gt;
 
 &lt;h3 id=&quot;buffer&quot;&gt;Buffer&lt;/h3&gt;
 &lt;p&gt;The main purpose of a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&lt;/code&gt; is to be used with a format. The template variable must fit in 4 32-bit quantities, but that template specifies the result after conversion &lt;strong&gt;not&lt;/strong&gt; the data as it is laid out in memory. The place that specifies the layout in memory is the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Format&lt;/code&gt; field of the SRV of the buffer. That’s right, even though a buffer resource must be created with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DXGI_FORMAT_UNKNOWN&lt;/code&gt;, an SRV meant to be bound to an HLSL &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Buffer&lt;/code&gt; &lt;strong&gt;has&lt;/strong&gt; a format. That format also defines the stride of the buffer read, and therefore the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;StructureByteStride&lt;/code&gt; field of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;D3D12_BUFFER_SRV&lt;/code&gt; &lt;strong&gt;must&lt;/strong&gt; be 0. Currently, specifying a format and a non-0 stride can result in device removed by the D3D12 runtime.&lt;/p&gt;
